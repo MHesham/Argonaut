@@ -19,30 +19,56 @@ namespace ArgonautControllerTest
         {
             this.InitializeComponent();
             Loaded += MainPage_Loaded;
+
+            Config = new ZumoMotorShieldConfig();
+            Config.LeftMotorDirPin = 5;
+            Config.RightMotorDirPin = 4;
+            Config.LeftPwmChannel = 1;
+            Config.RightPwmChannel = 0;
+            Config.PwmDriverSlaveAddress = 0x40;
         }
 
         private async void MainPage_Loaded(object sender, object args)
         {
-            // await MotorControlSmokeTest();
-            await ObjectTrackingSmokeTest(60);
+            //await MotorControlSmokeTest();
+            await ObjectTrackingFreeFPSSmokeTest(60);
         }
 
         private async Task MotorControlSmokeTest()
         {
-            ZumoMotorShieldConfig config = new ZumoMotorShieldConfig();
-            config.LeftMotorDirPin = 4;
-            config.RightMotorDirPin = 5;
-            config.LeftPwmChannel = 0;
-            config.RightPwmChannel = 1;
-            config.PwmDriverSlaveAddress = 0x40;
-
-            using (ZumoMotorShield motorDriver = new ZumoMotorShield(config))
+            using (ZumoMotorShield motorDriver = new ZumoMotorShield(Config))
             {
                 await motorDriver.Init();
+
+                motorDriver.SetLeftMotorPower(ZumoMotorDirection.Forward, 0.3f);
+                await Task.Delay(2000);
+                motorDriver.LeftMotorStop();
+
+                await Task.Delay(500);
+
+                motorDriver.SetLeftMotorPower(ZumoMotorDirection.Backward, 0.3f);
+                await Task.Delay(2000);
+                motorDriver.LeftMotorStop();
+
+                await Task.Delay(500);
+
+                motorDriver.SetLeftMotorPower(ZumoMotorDirection.Forward, 0.3f);
+                await Task.Delay(2000);
+                motorDriver.LeftMotorStop();
+
+                await Task.Delay(500);
+
+                motorDriver.SetLeftMotorPower(ZumoMotorDirection.Backward, 0.3f);
+                await Task.Delay(2000);
+                motorDriver.LeftMotorStop();
+
+                await Task.Delay(500);
 
                 bool flipDir = false;
                 ZumoMotorDirection dirA = ZumoMotorDirection.Forward;
                 ZumoMotorDirection dirB = ZumoMotorDirection.Backward;
+
+                Debug.WriteLine("Testing Motor Power Control");
 
                 for (int i = 20; i <= 100; i += 20)
                 {
@@ -66,27 +92,15 @@ namespace ArgonautControllerTest
 
                 motorDriver.LeftMotorStop();
                 motorDriver.RightMotorStop();
-
-                await Task.Delay(1000);
-
-                motorDriver.SetLeftMotorPower(ZumoMotorDirection.Forward, 0.5f);
-                await Task.Delay(2000);
-                motorDriver.LeftMotorStop();
-
-                await Task.Delay(500);
-
-                motorDriver.SetRightMotorPower(ZumoMotorDirection.Forward, 0.5f);
-                await Task.Delay(2000);
-                motorDriver.RightMotorStop();
             }
         }
 
-        private async Task ObjectTrackingSmokeTest(int seconds)
+        private async Task ObjectTrackingFreeFPSSmokeTest(int seconds)
         {
             using (ObjectTrackingController controller = new ObjectTrackingController())
             {
                 await controller.Init();
-                var task = controller.RunAsync();
+                var task = controller.RunAsync(50.0f);
 
                 Debug.WriteLine(string.Format("Letting object tracking run for {0} seconds", seconds));
                 await Task.Delay(seconds * 1000);
@@ -97,5 +111,25 @@ namespace ArgonautControllerTest
                 Debug.WriteLineIf(!graceful, "Shutdown timedout");
             }
         }
+
+        //private async Task ObjectTrackingLockedFPSSmokeTest(int seconds)
+        //{
+        //    using (ObjectTrackingController controller = new ObjectTrackingController())
+        //    {
+        //        await controller.Init();
+        //        controller.RunPeriodicAsync(50.0f);
+
+        //        Debug.WriteLine(string.Format("Letting object tracking run for {0} seconds", seconds));
+        //        await Task.Delay(seconds * 1000);
+
+        //        controller.Shutdown();
+        //        await Task.Delay(3000);
+
+        //        Debug.WriteLineIf(!controller.IsRunning, "Shutdown successfully");
+        //        Debug.WriteLineIf(controller.IsRunning, "Shutdown timedout");
+        //    }
+        //}
+
+        ZumoMotorShieldConfig Config;
     }
 }

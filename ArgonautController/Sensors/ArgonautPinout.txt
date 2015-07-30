@@ -1,6 +1,17 @@
 ﻿http://www.cmucam.org/projects/cmucam5/wiki/Porting_Guide
 http://ms-iot.github.io/content/en-US/win10/samples/PinMappingsRPi2.htm
 
+#RPi
+5  | Left Motor Dir		
+4  | Right Motor Dir
+
+#PWM HAT
+1  | Left Motor Pwm Channel		
+0  | Right Motor Pwm Channel		
+
+Pwm Driver Slave Address 0x40
+
+#PixyCam ICSP Pinout
 1				2
 MISO (RED)		5V
 

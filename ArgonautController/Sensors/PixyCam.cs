@@ -278,11 +278,13 @@ namespace ArgonautController.Sensors
 
         public override string ToString()
         {
-            return "Signature: " + Signature + Environment.NewLine +
-                "Width: " + Width + Environment.NewLine +
-                "Height: " + Height + Environment.NewLine +
-                "X: " + X + Environment.NewLine +
-                "Y: " + Y;
+            return string.Format(
+                "Signature:{0} ({1},{2}) {3}x{4}",
+                Signature,
+                X,
+                Y,
+                Width,
+                Height);
         }
     }
 }

@@ -47,6 +47,7 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
+    <Optimize>false</Optimize>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM'">
     <PlatformTarget>ARM</PlatformTarget>
@@ -118,7 +119,7 @@
     <Compile Include="Sensors\PixyCam.cs" />
     <Compile Include="Actuators\ZumoMotorShield.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Content Include="Sensors\Camera pinouts.txt" />
+    <Content Include="Sensors\ArgonautPinout.txt" />
     <Content Include="Properties\Actuation.rd.xml" />
   </ItemGroup>
   <ItemGroup>

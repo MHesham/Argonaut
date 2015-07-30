@@ -1,12 +1,27 @@
 ﻿using ArgonautController.Actuators;
 using ArgonautController.Sensors;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Windows.System.Threading;
 
 namespace ArgonautController
 {
+    public enum ControllerStateID
+    {
+        Scan,
+        Track,
+        Follow
+    }
+
+    public interface ControllerState
+    {
+        void Enter();
+        void Leave();
+        ControllerStateID Update();
+    }
+   
     public class ObjectTrackingController : IDisposable
     {
         const long X_CENTER = 160;
@@ -60,10 +75,10 @@ namespace ArgonautController
         {
             ZumoMotorShieldConfig config;
             config = new ZumoMotorShieldConfig();
-            config.LeftMotorDirPin = 4;
-            config.RightMotorDirPin = 5;
-            config.LeftPwmChannel = 0;
-            config.RightPwmChannel = 1;
+            config.LeftMotorDirPin = 5;
+            config.RightMotorDirPin = 4;
+            config.LeftPwmChannel = 1;
+            config.RightPwmChannel = 0;
             config.PwmDriverSlaveAddress = 0x40;
 
             watch = new Stopwatch();
@@ -72,6 +87,12 @@ namespace ArgonautController
             pixyCam = new PixyCam();
             panLoop = new ServoLoop(200, 200);
             tiltLoop = new ServoLoop(150, 200);
+
+            stateMachine = new Dictionary<ControllerStateID, ControllerState>();
+            stateMachine.Add(ControllerStateID.Scan, new ScanState(this));
+            stateMachine.Add(ControllerStateID.Track, new TrackState(this));
+            stateMachine.Add(ControllerStateID.Follow, new FollowState(this));
+            currentState = ControllerStateID.Scan;
         }
 
         public async Task Init()
@@ -80,34 +101,28 @@ namespace ArgonautController
 
             await motorDriver.Init();
             await pixyCam.Init();
+
+            pixyCam.SetServos(0, 0);
         }
 
-        public Task RunAsync()
+        public Task RunAsync(float fps)
         {
-            // Set LED to blue
-            pixyCam.SetLED(0, 0, 255);
-
             // Start reading frames from camera
             return ThreadPool.RunAsync((s) =>
             {
-                Debug.WriteLine("Starting ObjectTracking loop");
+                Debug.WriteLine("Entering free running loop");
 
+                long frameTimeMs = (int)Math.Round((1000.0f / fps));
+                //long lastUpdateMilliseconds = 0;
+                isRunning = true;
                 watch.Start();
+
                 while (!shutdown)
                 {
-                    var blocks = pixyCam.GetBlocks(10);
-
-                    if (blocks != null && blocks.Count > 0)
-                    {
-                        var trackedBlock = trackBlock(blocks.ToArray());
-                        if (trackedBlock != null)
-                        {
-                            followBlock(trackedBlock);
-                        }
-                    }
+                    loop();
 
                     ++frameCount;
-                    fps = frameCount / (float)watch.Elapsed.TotalSeconds;
+                    float effectiveFps = frameCount / (float)watch.Elapsed.TotalSeconds;
 
                     Debug.WriteLineIf(
                         watch.ElapsedMilliseconds % 5000 == 0,
@@ -115,24 +130,137 @@ namespace ArgonautController
                 }
                 watch.Stop();
 
-                motorDriver.LeftMotorStop();
-                motorDriver.RightMotorStop();
+                cleanUp();
 
-                Debug.WriteLine("Exiting ObjectTracking loop");
+                Debug.WriteLine("Exiting free running loop");
 
             }).AsTask();
         }
 
         public void Shutdown()
         {
-            Debug.WriteLine("Shutdowning ObjectTracking Controller");
+            Debug.WriteLine("Shuttingdown...");
             shutdown = true;
         }
 
-        // Track blocks via the Pixy pan/tilt mechanism
-        private ObjectBlock trackBlock(ObjectBlock[] blocks)
+        public bool IsRunning
         {
-            ObjectBlock trackedBlock = null;
+            get { return isRunning; }
+        }
+
+        class ScanState : ControllerState
+        {
+            public ScanState(ObjectTrackingController c)
+            {
+                controller = c;
+            }
+
+            public void Enter()
+            {
+            }
+
+            public void Leave()
+            {
+            }
+
+            public ControllerStateID Update()
+            {
+                controller.scannedBlocks = controller.pixyCam.GetBlocks(10);
+
+                if (controller.scannedBlocks != null && controller.scannedBlocks.Count > 0)
+                    return ControllerStateID.Track;
+                else
+                    return ControllerStateID.Scan;
+            }
+
+            ObjectTrackingController controller;
+        }
+
+        class TrackState : ControllerState
+        {
+            public TrackState(ObjectTrackingController c)
+            {
+                controller = c;
+            }
+
+            public void Enter()
+            {
+                // Set LED to blue
+                // controller.pixyCam.SetLED(0, 0, 255);
+            }
+
+            public void Leave()
+            {
+            }
+
+            public ControllerStateID Update()
+            {
+                controller.trackedBlock = controller.trackBlock(controller.scannedBlocks);
+
+               if (controller.trackedBlock != null)
+                    return ControllerStateID.Follow;
+               else
+                    return ControllerStateID.Scan;
+            }
+
+            ObjectTrackingController controller;
+        }
+
+        class FollowState : ControllerState
+        {
+            public FollowState(ObjectTrackingController c)
+            {
+                controller = c;
+            }
+
+            public void Enter()
+            {
+                controller.followBlock(controller.trackedBlock);
+            }
+
+            public void Leave()
+            {
+            }
+
+            public ControllerStateID Update()
+            {
+                return ControllerStateID.Scan;
+            }
+
+            ObjectTrackingController controller;
+        }
+
+        private void loop()
+        {
+            var nextState = stateMachine[currentState].Update();
+            if (nextState != currentState)
+            {
+                var oldState = currentState;
+                stateMachine[oldState].Leave();
+
+                currentState = nextState;
+                stateMachine[currentState].Enter();
+
+                Debug.WriteLine("@{0} Transition: {1}->{2}", frameCount, oldState, nextState);
+            }
+
+            ++frameCount;
+        }
+
+        private void cleanUp()
+        {
+            motorDriver.LeftMotorStop();
+            motorDriver.RightMotorStop();
+
+            isRunning = false;
+        }
+
+        // Track blocks via the Pixy pan/tilt mechanism
+        private ObjectBlock trackBlock(List<ObjectBlock> blocks)
+        {
+            Debug.Assert(blocks != null && blocks.Count > 0);
+
+            trackedBlock = null;
             long maxSize = 0;
 
             foreach (ObjectBlock block in blocks)
@@ -166,6 +294,11 @@ namespace ArgonautController
         // This code makes the robot base turn and move to follow the pan/tilt tracking of the head
         private void followBlock(ObjectBlock trackedBlock)
         {
+            Debug.WriteLine(
+                string.Format(
+                    "Follow: {0}",
+                    trackedBlock.ToString()));
+
             long followError = RCS_CENTER_POS - panLoop.Position;
 
             // Size is the area of the object
@@ -243,12 +376,17 @@ namespace ArgonautController
 
         ZumoMotorShield motorDriver;
         PixyCam pixyCam;
-        ServoLoop panLoop, tiltLoop;
+        ServoLoop panLoop;
+        ServoLoop tiltLoop;
         bool shutdown = false;
+        bool isRunning = false;
         ObjectBlock oldBlock;
         long size = 400;
         long frameCount = 0;
-        float fps = 0;
         Stopwatch watch;
+        ControllerStateID currentState;
+        Dictionary<ControllerStateID, ControllerState> stateMachine;
+        List<ObjectBlock> scannedBlocks;
+        ObjectBlock trackedBlock;
     }
 }
