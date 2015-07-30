@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Windows.Devices.Gpio;
+using Windows.System.Threading;
 
 namespace ArgonautController.Actuators
 {
@@ -14,6 +15,7 @@ namespace ArgonautController.Actuators
             LeftPwmChannel = 0;
             RightPwmChannel = 0;
             PwmDriverSlaveAddress = 0;
+            BuzzerPwmChannel = 0;
         }
 
         public int LeftMotorDirPin;
@@ -21,6 +23,7 @@ namespace ArgonautController.Actuators
         public int LeftPwmChannel;
         public int RightPwmChannel;
         public int PwmDriverSlaveAddress;
+        public int BuzzerPwmChannel;
 
         public override string ToString()
         {
@@ -49,7 +52,7 @@ namespace ArgonautController.Actuators
 
         public async Task Init()
         {
-            Debug.WriteLine("Initializaing ZumoMotorShield");
+            Debug.WriteLine("Initializing ZumoMotorShield");
 
             Debug.WriteLine(Config.ToString());
 
@@ -65,6 +68,7 @@ namespace ArgonautController.Actuators
             RightMotorDir.SetDriveMode(GpioPinDriveMode.Output);
 
             PwmDriver = new PCA9685(Config.PwmDriverSlaveAddress);
+
             await PwmDriver.Init();
         }
 
@@ -104,6 +108,16 @@ namespace ArgonautController.Actuators
             Debug.WriteLine("RightMotor: Stop");
 
             SetRightMotorPower(ZumoMotorDirection.Forward, 0.0f);
+        }
+
+        public Task Buzz(float frequency, uint durationMs)
+        {
+            return ThreadPool.RunAsync(async (s) =>
+            {
+                PwmDriver.SetChannelDutyCycle(Config.BuzzerPwmChannel, 0.5f);
+                await Task.Delay((int)durationMs);
+                PwmDriver.SetChannelDutyCycle(Config.BuzzerPwmChannel, 0.0f);
+            }).AsTask();
         }
 
         public void Dispose()

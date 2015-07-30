@@ -7,12 +7,23 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <StackPanel x:Name="ControlStack" Background="#FF8D6060">
-        <TextBlock x:Name="StatusTxt" Width="300" Height="35" Text="Click Initialize to get started!" HorizontalAlignment="Left" />
-        <Button x:Name="InitializeCannelsBtn" Content="Initalize" Height="35" VerticalAlignment="Stretch" Width="200" Click="InitializeClicked"/>
-        <Button x:Name="SendTemperatureUpdateBtn" Content="Send Temperature" Height="35" VerticalAlignment="Stretch" Width="200" Click="OnSendTemperatureUpdate" />
-        <Button x:Name="SendIRUpdateBtn" Content="Send IR" Height="35" VerticalAlignment="Stretch" Width="200" Click="OnSendIRUpdate" />
-        <Button x:Name="SendSonarUpdateBtn" Content="Send Sonar" Height="35" VerticalAlignment="Stretch" Width="200" Click="OnSendSonarUpdate" />
-        <Button x:Name="StartCameraBtn" Content="Start Pixy Cam" Height="35" VerticalAlignment="Stretch" Width="200" Click="StartCameraBtn_Click" />
-    </StackPanel>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <StackPanel x:Name="ControlStack" RequestedTheme="Dark" Background="Black" Grid.Column="0">
+            <TextBlock x:Name="StatusTxt" Height="35" Text="Click Initialize to get started!" HorizontalAlignment="Stretch" TextAlignment="Center" Margin="0,10,0,0" />
+            <Button x:Name="InitializeCannelsBtn" Content="Initalize" Height="35" VerticalAlignment="Stretch" Click="InitializeClicked" Margin="0,0,0,10" HorizontalAlignment="Stretch"/>
+            <Button x:Name="SendTemperatureUpdateBtn" Content="Send Temperature" Height="35" VerticalAlignment="Stretch" Click="OnSendTemperatureUpdate" Margin="0,0,0,10" HorizontalAlignment="Stretch" />
+            <Button x:Name="SendIRUpdateBtn" Content="Send IR" Height="35" VerticalAlignment="Stretch" Click="OnSendIRUpdate" Margin="0,0,0,10" HorizontalAlignment="Stretch" />
+            <Button x:Name="SendSonarUpdateBtn" Content="Send Sonar" Height="35" VerticalAlignment="Stretch" Click="OnSendSonarUpdate" Margin="0,0,0,10" HorizontalAlignment="Stretch" />
+            <Button x:Name="ToggleCameraDebugBtn" Content="Toggle Camera Debug" Height="35" VerticalAlignment="Stretch" Click="ToggleCameraDebugBtn_Click" Margin="0,0,0,10" HorizontalAlignment="Stretch"/>
+        </StackPanel>
+        
+        <Canvas x:Name="canvas" Background="White" Grid.Column="1">
+            <TextBlock x:Name="outputTextBlock" Canvas.Left="10" TextWrapping="Wrap" Text="Camera Status" Canvas.Top="10" Foreground="Black" FontSize="24" FontWeight="Light"/>
+        </Canvas>
+    </Grid>
 </Page>

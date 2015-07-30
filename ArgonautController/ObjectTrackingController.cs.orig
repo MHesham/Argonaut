@@ -4,10 +4,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Windows.Foundation;
 using Windows.System.Threading;
+using Windows.UI;
+using Windows.UI.Core;
 
 namespace ArgonautController
 {
+<<<<<<< HEAD
     public enum ControllerStateID
     {
         Scan,
@@ -21,19 +25,18 @@ namespace ArgonautController
         void Leave();
         ControllerStateID Update();
     }
-
+   
+=======
     public class ObjectBlocksEventArgs : EventArgs
     {
-        public ObjectBlocksEventArgs(List<ObjectBlock> blocks)
-        {
-            Blocks = blocks;
-        }
-
-        public List<ObjectBlock> Blocks;
+        public ObjectBlock[] Blocks;
     }
 
+>>>>>>> 88ca3274903ce7339b8a51e1bda803629e58656c
     public class ObjectTrackingController : IDisposable
     {
+        public event EventHandler<ObjectBlocksEventArgs> BlocksReceived;
+
         const long X_CENTER = 160;
         const long Y_CENTER = 100;
         const long RCS_MIN_POS = 0;
@@ -89,7 +92,10 @@ namespace ArgonautController
             config.RightMotorDirPin = 4;
             config.LeftPwmChannel = 1;
             config.RightPwmChannel = 0;
+<<<<<<< HEAD
+=======
             config.BuzzerPwmChannel = 2;
+>>>>>>> 88ca3274903ce7339b8a51e1bda803629e58656c
             config.PwmDriverSlaveAddress = 0x40;
 
             watch = new Stopwatch();
@@ -121,39 +127,63 @@ namespace ArgonautController
             // Start reading frames from camera
             return ThreadPool.RunAsync((s) =>
             {
+<<<<<<< HEAD
                 Debug.WriteLine("Entering free running loop");
+=======
+                Debug.WriteLine("Starting ObjectTracking loop");
+                long previousTime = 0;
+>>>>>>> 88ca3274903ce7339b8a51e1bda803629e58656c
 
                 long frameTimeMs = (int)Math.Round((1000.0f / fps));
-
-                Debug.WriteLine("Running at target {0} FPS ~ frame every {1}ms", fps, frameTimeMs);
-
-                long lastFrameMilliseconds = 0;
-
-                var fpsTrackingTimer = ThreadPoolTimer.CreatePeriodicTimer((t) =>
-                {
-                    float effectiveFps = frameCount / (float)watch.Elapsed.TotalSeconds;
-                    Debug.WriteLine(
-                        string.Format(
-                            "{0}s: FPS={1}, Frame-time={2}ms",
-                            watch.Elapsed.TotalSeconds,
-                            effectiveFps,
-                            1000.0f / effectiveFps));
-                }, TimeSpan.FromSeconds(1));
-
+                //long lastUpdateMilliseconds = 0;
                 isRunning = true;
                 watch.Start();
 
                 while (!shutdown)
                 {
-                    if (watch.ElapsedMilliseconds - lastFrameMilliseconds > frameTimeMs)
+<<<<<<< HEAD
+                    loop();
+=======
+                    long diff = watch.ElapsedMilliseconds - previousTime;
+                    if (diff > 20)
                     {
-                        loop();
-                        lastFrameMilliseconds = watch.ElapsedMilliseconds;
-                        ++frameCount;
+                        //Debug.WriteLine("Diff time: " + diff + "ms");
+                    var blocks = pixyCam.GetBlocks(10);
+
+                    if (blocks != null && blocks.Count > 0)
+                    {
+                        var trackedBlock = trackBlock(blocks);
+                        if (trackedBlock != null)
+                        {
+                            followBlock(trackedBlock);
+                        }
+
+                            previousTime = watch.ElapsedMilliseconds;
+
+                            // Commenting out UI debugging
+                            //OnBlocksReceived(new ObjectBlocksEventArgs() { Blocks = blocks.ToArray() });
+                    }
+                    else oldBlock = null;
+>>>>>>> 88ca3274903ce7339b8a51e1bda803629e58656c
+
+                    ++frameCount;
+                    float effectiveFps = frameCount / (float)watch.Elapsed.TotalSeconds;
+
+                    Debug.WriteLineIf(
+                        watch.ElapsedMilliseconds % 5000 == 0,
+                        string.Format("{0}s: FPS={1}, Frame-time={2}ms", watch.Elapsed.TotalSeconds, fps, 1000.0f / fps));
+                }
+
+
+                    // If we lose sight of the object, start slowing down to a stop
+                    if (diff > 100)
+                    {
+                        float stopTime = 3000;
+                        motorDriver.SetLeftMotorPower(ZumoMotorDirection.Forward, (stopTime - diff) / stopTime);
+                        motorDriver.SetRightMotorPower(ZumoMotorDirection.Forward, (stopTime - diff) / stopTime);
                     }
                 }
                 watch.Stop();
-                fpsTrackingTimer.Cancel();
 
                 cleanUp();
 
@@ -193,10 +223,7 @@ namespace ArgonautController
                 controller.scannedBlocks = controller.pixyCam.GetBlocks(10);
 
                 if (controller.scannedBlocks != null && controller.scannedBlocks.Count > 0)
-                {
-                    controller.OnBlocksReceived(new ObjectBlocksEventArgs(controller.scannedBlocks));
                     return ControllerStateID.Track;
-                }
                 else
                     return ControllerStateID.Scan;
             }
@@ -291,6 +318,43 @@ namespace ArgonautController
             trackedBlock = null;
             long maxSize = 0;
 
+            // Frederick's code
+            // // Get this biggest block
+            // ObjectBlock biggestBlock = blocks[0];
+            // for (int index = 1; index < blocks.Count; ++index)
+            // {
+            //     long newSize = blocks[index].Height * blocks[index].Width;
+            //     if (newSize > maxSize)
+            //     {
+            //         biggestBlock = blocks[index];
+            //         maxSize = newSize;
+            //     }
+            //}
+
+            // //// 3 cases:
+            // //// 1: New block
+            // //// 2: Same block
+            // //// 3: Different block
+            // //// Case 1 and 3 result in the biggest block being assigned as the tracked block
+
+            // //// 1: New Block & different block
+            // //if (oldBlock == null || oldBlock.Signature != biggestBlock.Signature)
+            // //{
+            // //    trackedBlock = biggestBlock;
+            // //    oldBlock = biggestBlock;
+
+            // //    // Notify listeners that new object blocks have been detected
+            // //    if (this.OnNewBlocksDetected != null)
+            // //    {
+            // //        //this.OnNewBlocksDetected(this, new BlockDetectedEventArgs(blocks));
+            // //    }
+            // //}
+            // //// 2: Same block
+            // //else if (oldBlock.Signature == biggestBlock.Signature)
+            // //{
+            // //    trackedBlock = oldBlock;
+            // //}
+
             foreach (ObjectBlock block in blocks)
             {
                 if (oldBlock == null || (block.Signature == oldBlock.Signature))
@@ -334,18 +398,15 @@ namespace ArgonautController
             size += trackedBlock.Width * trackedBlock.Height;
             size -= size >> 3;
 
-            const int MinSpeed = -400;
-            const int MaxSpeed = 400;
-
             // Forward speed decreases as we approach the object (size is larger)
-            int forwardSpeed = Constrain(400 - ((int)size / 256), MinSpeed / 2, MaxSpeed);
+            int forwardSpeed = Constrain(400 - ((int)size / 256), -100, 400);
 
             // Steering differential is proportional to the error times the forward speed
             long differential = (followError + (followError * forwardSpeed)) >> 8;
 
             // Adjust the left and right speeds by the steering differential
-            int leftSpeed = Constrain((int)(forwardSpeed + differential), MinSpeed, MaxSpeed);
-            int rightSpeed = Constrain((int)(forwardSpeed - differential), MinSpeed, MaxSpeed);
+            int leftSpeed = Constrain((int)(forwardSpeed + differential), -400, 400);
+            int rightSpeed = Constrain((int)(forwardSpeed - differential), -400, 400);
 
             float leftPower, rightPower;
             ZumoMotorDirection leftDir, rightDir;
@@ -360,9 +421,8 @@ namespace ArgonautController
             else
                 rightDir = ZumoMotorDirection.Backward;
 
-            const float PowerScaleDown = 0.75f;
-            leftPower = (Math.Abs(leftSpeed) / (float)MaxSpeed) * PowerScaleDown;
-            rightPower = (Math.Abs(rightSpeed) / (float)MaxSpeed) * PowerScaleDown;
+            leftPower = Math.Abs(leftSpeed) / 500.0f;
+            rightPower = Math.Abs(rightSpeed) / 500.0f;
 
             Debug.WriteLine(
                 string.Format("followError={0}, size={1}, differential={2}, leftPower={3}, rightPower={4}",
@@ -406,18 +466,16 @@ namespace ArgonautController
             }
         }
 
-        public event EventHandler<ObjectBlocksEventArgs> BlocksReceived;
-
         protected virtual void OnBlocksReceived(ObjectBlocksEventArgs e)
         {
             EventHandler<ObjectBlocksEventArgs> handler = BlocksReceived;
-            if (handler != null)
+            if(handler != null)
             {
                 handler(this, e);
             }
         }
 
-        ZumoMotorShield motorDriver;
+        public ZumoMotorShield motorDriver;
         PixyCam pixyCam;
         ServoLoop panLoop;
         ServoLoop tiltLoop;

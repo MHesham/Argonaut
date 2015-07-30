@@ -4,7 +4,8 @@ using System.Diagnostics;
 using ArgonautController.Actuators;
 using ArgonautController;
 using System.Threading;
-using System.Diagnostics.Tracing;
+using System;
+
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -25,19 +26,30 @@ namespace ArgonautControllerTest
             Config.RightMotorDirPin = 4;
             Config.LeftPwmChannel = 1;
             Config.RightPwmChannel = 0;
-            Config.BuzzerPwmChannel = 2;
             Config.PwmDriverSlaveAddress = 0x40;
         }
 
         private async void MainPage_Loaded(object sender, object args)
         {
             //await MotorControlSmokeTest();
-            await ObjectTrackingSmokeTest(60);
+            await ObjectTrackingFreeFPSSmokeTest(60);
         }
 
         private async Task MotorControlSmokeTest()
         {
+<<<<<<< HEAD
             using (ZumoMotorShield motorDriver = new ZumoMotorShield(Config))
+=======
+            ZumoMotorShieldConfig config = new ZumoMotorShieldConfig();
+            config.LeftMotorDirPin = 4;
+            config.RightMotorDirPin = 5;
+            config.LeftPwmChannel = 0;
+            config.RightPwmChannel = 1;
+            config.PwmDriverSlaveAddress = 0x40;
+            config.BuzzerPwmChannel = 2;
+
+            using (ZumoMotorShield motorDriver = new ZumoMotorShield(config))
+>>>>>>> 88ca3274903ce7339b8a51e1bda803629e58656c
             {
                 await motorDriver.Init();
 
@@ -96,24 +108,25 @@ namespace ArgonautControllerTest
             }
         }
 
-        private async Task ObjectTrackingSmokeTest(int seconds)
+        private async Task ObjectTrackingFreeFPSSmokeTest(int seconds)
         {
             using (ObjectTrackingController controller = new ObjectTrackingController())
             {
+                controller.BlocksReceived += Controller_OnNewBlocksDetected;
                 await controller.Init();
-                var task = controller.RunAsync(100.0f);
+                var task = controller.RunAsync(50.0f);
 
                 Debug.WriteLine(string.Format("Letting object tracking run for {0} seconds", seconds));
                 await Task.Delay(seconds * 1000);
 
                 controller.Shutdown();
                 bool graceful = task.Wait(3000);
-
                 Debug.WriteLineIf(graceful, "Shutdown successfully");
                 Debug.WriteLineIf(!graceful, "Shutdown timedout");
             }
         }
 
+<<<<<<< HEAD
         //private async Task ObjectTrackingLockedFPSSmokeTest(int seconds)
         //{
         //    using (ObjectTrackingController controller = new ObjectTrackingController())
@@ -133,5 +146,16 @@ namespace ArgonautControllerTest
         //}
 
         ZumoMotorShieldConfig Config;
+=======
+        private void Controller_OnNewBlocksDetected(object source, ObjectBlocksEventArgs e)
+        {
+            var blocks = e.Blocks;
+            if (blocks != null && blocks.Length > 0)
+            {
+                var controller = source as ObjectTrackingController;
+                controller.motorDriver.Buzz(500f, 500);
+            }
+        }
+>>>>>>> 88ca3274903ce7339b8a51e1bda803629e58656c
     }
 }

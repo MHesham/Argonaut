@@ -18,18 +18,103 @@ using Windows.UI.Xaml.Navigation;
 namespace OneWeek.Hackathon
 {
     using Argonaut.Networking;
+    using ArgonautController;
+    using ArgonautController.Sensors;
+    using System.Threading.Tasks;
+    using Windows.UI;
+    using Windows.UI.Xaml.Shapes;
 
     /// <summary>
-    /// An empty page that can be used on its own or navigated to within a Frame.
+    /// Main Page
     /// </summary>
     public sealed partial class MainPage : Page
     {
         EventHubSettings eventHubSettings;
         EventSender eventSender;
+        Dictionary<uint, Rectangle> blockDict;
+
+        const double PIXY_X_MAX = 320;
+        const double PIXY_Y_MAX = 200;
+
+        Color[] blockColors = { Colors.Green, Colors.Red, Colors.Yellow };
+        bool showCameraDebug = true;
+        object cameraLock = new object();
 
         public MainPage()
         {
             this.InitializeComponent();
+            blockDict = new Dictionary<uint, Rectangle>();
+            Loaded += MainPage_Loaded;
+        }
+
+        private async void MainPage_Loaded(object sender, RoutedEventArgs e)
+        {
+            await startObjectTracking();
+        }
+
+        private async Task startObjectTracking()
+        {
+            using (ObjectTrackingController controller = new ObjectTrackingController())
+            {
+                controller.BlocksReceived += Controller_BlocksReceived;
+                await controller.Init();
+                await controller.RunAsync(50.0f);
+            }
+        }
+
+        private void Controller_BlocksReceived(object sender, ObjectBlocksEventArgs e)
+        {
+            if (showCameraDebug)
+            {
+                lock (cameraLock)
+                {
+                    foreach (ObjectBlock block in e.Blocks)
+                    {
+                        updateUI(block);
+                    }
+                }
+            }
+        }
+
+        // Display what the camera is seeing on the page
+        private async void updateUI(ObjectBlock block)
+        {
+            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
+            {
+                if (!blockDict.ContainsKey(block.Signature))
+                {
+                    addNewRect(block);
+                }
+
+                blockDict[block.Signature].Visibility = Visibility.Visible;
+                blockDict[block.Signature].Width = block.Width;
+                blockDict[block.Signature].Height = block.Height;
+                double xRatio = (block.X - ((double)block.Width / 2)) / PIXY_X_MAX;
+                double yRatio = (block.Y - ((double)block.Height / 2)) / PIXY_Y_MAX;
+                Canvas.SetLeft(blockDict[block.Signature], xRatio * canvas.ActualWidth);
+                Canvas.SetTop(blockDict[block.Signature], yRatio * canvas.ActualHeight);
+
+                outputTextBlock.Text = block.ToString();
+            });
+        }
+
+        private void addNewRect(ObjectBlock block)
+        {
+            Rectangle rect = new Rectangle();
+            if(blockColors.Length >= block.Signature)
+            {
+                rect.Fill = new SolidColorBrush(blockColors[block.Signature - 1]);
+            }
+            else
+            {
+                rect.Fill = new SolidColorBrush(Colors.Gray);
+            }
+
+            rect.Width = block.Width;
+            rect.Height = block.Height;
+
+            canvas.Children.Add(rect);
+            blockDict.Add(block.Signature, rect);
         }
 
         /// <summary>
@@ -128,9 +213,11 @@ namespace OneWeek.Hackathon
         {
             StatusTxt.Text = message;
         }
-        private void StartCameraBtn_Click(object sender, RoutedEventArgs e)
+
+        private void ToggleCameraDebugBtn_Click(object sender, RoutedEventArgs e)
         {
-            this.Frame.Navigate(typeof(CameraPage));
+            showCameraDebug = !showCameraDebug;
+            canvas.Visibility = (showCameraDebug) ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 }
